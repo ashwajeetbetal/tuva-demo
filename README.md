@@ -1,63 +1,29 @@
-[![Apache License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) ![dbt logo and version](https://img.shields.io/static/v1?logo=dbt&label=dbt-version&message=1.5.x&color=orange)
+# Oncology Financials Analysis
 
-# The Tuva Project Demo
+## 1. Methodology
+**Cohort Definition:**
+I defined the "Active Oncology" population by filtering for ICD-10 diagnosis codes starting with 'C' (Malignant Neoplasms) in the `medical_claim` table. I excluded 'D' codes (In Situ) to focus on active malignancy.
 
-## 🧰 What does this project do?
+**Architectural Decision - Claims-First Approach:**
+Upon profiling the provided data, I discovered that the clinical seed files (`condition`, `encounter`) were unpopulated. To ensure the analysis was based on valid data, I refactored the pipeline to use `medical_claim` as the single source of truth:
+* **Conditions:** Extracted from primary diagnosis codes (`diagnosis_code_1`) on claim lines.
+* **Encounters:** Synthesized using a surrogate key (`patient_id` + `date`) from claims to proxy patient visits.
 
-This demo provides a quick and easy way to run the Tuva Project 
-Package in a dbt project with synthetic data for 1k patients loaded as dbt seeds.
+**Data Handling:**
+* **Segmentation:** Patients were segmented by Cancer Type (Breast, Lung, Prostate, Colorectal) and Spend Bucket (High/Medium/Low).
+* **Cost Profiling:** Spend was broken down into Facility (Institutional) vs. Professional settings to analyze whether costs are driven by hospital fees or provider services.
 
-To set up the Tuva Project with your own claims data or to better understand what the Tuva Project does, please review the ReadMe in [The Tuva Project](https://github.com/tuva-health/the_tuva_project) package for a detailed walkthrough and setup.
+## 2. Key Findings
+Based on the final data mart analysis:
 
-For information on the data models check out our [Docs](https://thetuvaproject.com/).
+* **Extreme Outliers:** The risk pool is heavily skewed by a few high-cost claimants. The top Lung Cancer patient (ID `11524`) generated **$2.23M** in total spend, and the top Breast Cancer patient (ID `10408`) generated **$1.74M**.
+* **Care Setting Dichotomy:** There is a distinct difference in cost drivers between cancer types:
+    * **Lung Cancer:** Costs are predominantly driven by **Facility Spend** (~84% for the top claimant), suggesting high inpatient usage.
+    * **Breast Cancer:** Costs are heavily driven by **Professional Spend** (77%-100% for top claimants). For example, Patient `11512` had $807k in total spend with **$0** in facility costs, indicating a treatment regimen focused entirely on expensive outpatient/provider-administered therapies (e.g., biologics/chemotherapy).
+* **Top Drivers:** In terms of individual patient severity, **Lung Cancer** and **Breast Cancer** represent the highest-cost specific cohorts in the top 10 rankings.
 
-## ✅ How to get started
-
-### Pre-requisites
-You only need one thing installed:
-1. [uv](https://docs.astral.sh/uv/getting-started/) - a fast Python package manager. Installation is simple and OS-agnostic:
-   ```bash
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-   Or on Windows:
-   ```powershell
-   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-   ```
-
-**Note:** This demo uses DuckDB as the database, so you don't need to configure a connection to an external data warehouse. Everything is configured and ready to go!
-
-### Getting Started
-Complete the following steps to run the demo:
-
-1. [Clone](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) this repo to your local machine or environment.
-1. In the project directory, install Python dependencies and set up the virtual environment:
-   ```bash
-   uv sync
-   ```
-1. Activate the virtual environment:
-   ```bash
-   source .venv/bin/activate  # On macOS/Linux
-   # or on Windows:
-   .venv\Scripts\activate
-   ```
-1. Run `dbt deps` to install the Tuva Project package:
-   ```bash
-   dbt deps
-   ```
-1. Run `dbt build` to run the entire project with the built-in sample data:
-   ```bash
-   dbt build
-   ```
-
-The `profiles.yml` file is already included in this repo and pre-configured for DuckDB, so no additional setup is needed!
-
-### Using uv commands
-You can also run dbt commands directly with `uv run` without activating the virtual environment:
-```bash
-uv run dbt deps
-uv run dbt build
-```
-
-## 🤝 Community
-
-Join our growing community of healthcare data practitioners on [Slack](https://join.slack.com/t/thetuvaproject/shared_invite/zt-16iz61187-G522Mc2WGA2mHF57e0il0Q)!
+## 3. AI Usage Log
+Per the assignment instructions, the following AI tools were used to accelerate the build:
+* **Data Profiling:** Used AI to generate `dbt show` queries to profile the empty `observation` tables, which led to the discovery that diagnoses were only present in the `medical_claim` table.
+* **Code Generation:** Leveraged AI to generate the SQL `CASE` logic for grouping ICD-10 codes (e.g., `C50%` -> Breast Cancer) and to write the surrogate key logic for synthesizing encounters.
+* **Correction Log:** The AI initially suggested using the standard Tuva `condition` model. I had to correct this workflow after discovering the source seeds were empty, prompting the refactor to a Claims-based architecture.
