@@ -6,8 +6,11 @@ I defined the "Active Oncology" population by filtering for ICD-10 diagnosis cod
 
 **Architectural Decision - Claims-First Approach:**
 During the initial build, I performed a data audit and identified that the condition and encounter clinical seeds were not being populated as expected. Upon reviewing the project configuration, I noted that these specific seeds were not included in the post-hook data loading sequence within the dbt_project.yml.
+
 To ensure a reliable output despite these upstream configuration gaps, I made the architectural decision to utilize a Claims-First approach:
+
 Conditions: Extracted directly from primary diagnosis codes (diagnosis_code_1) on the medical_claim table, which I verified as the most robust source of truth (~167k rows).
+
 Encounters: Synthesized using a surrogate key logic (patient_id + claim_start_date) to proxy patient interactions based on verified billing activity.
 
 **Data Handling:**
